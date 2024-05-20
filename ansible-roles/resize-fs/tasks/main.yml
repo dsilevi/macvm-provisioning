@@ -1,0 +1,19 @@
+# tasks file for resize-fs
+- name: install parted
+  apt:
+    pkg: [ "parted" ]
+  tags: resize-fs
+
+- name: resize pv
+  community.general.lvg:
+    vg: ubuntu-vg
+    pvs: /dev/sda3
+    pvresize: yes
+    state: present
+
+- name: resize root filesystem
+  community.general.lvol:
+    vg: ubuntu-vg
+    lv: root
+    size: +100%FREE
+    resizefs: yes

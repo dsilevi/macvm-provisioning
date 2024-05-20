@@ -14,14 +14,16 @@ configuration:
         ipAddress: 192.168.64.12
   commonPackages:
     - name: "vim"
-    - name: "netutils"
+      version: "2:8.2.3995-1ubuntu2.16"
+    - name: "net-tools"
+      version: "1.60+git20181103.0eebece-1ubuntu5"
   ansibleInventory:
-    filename: "inventory"
+    filename: "ansible/inventory"
   ansibleUser:
     name: "dsilevi"
   ansibleBecomeUser:
     name: "root"
   ansibleVaultPasswd:
-    filename: ".vault_pass.txt"
+    filename: "ansible/.vault_pass.txt"
   ansibleVaultVars:
-    filename: "passwd"
+    filename: "ansible/passwd"

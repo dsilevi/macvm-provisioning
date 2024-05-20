@@ -8,8 +8,8 @@ k8sworkers:
       ansible_host: 192.168.64.12
 k8shosts:
   children:
-    k8smasters: ''
-    k8sworkers: ''
-vars:
-  ansible_become_user: root
-  ansible_user: dsilevi
+    k8smasters: {}
+    k8sworkers: {}
+  vars:
+    ansible_become_user: root
+    ansible_user: dsilevi

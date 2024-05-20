@@ -1,0 +1,8 @@
+---
+# tasks file for resize-fs
+- name: switch on iptables
+  sysctl:
+    name: "net.bridge.bridge-nf-call-iptables"
+    value: 1
+    state: present
+  tags: iptables
