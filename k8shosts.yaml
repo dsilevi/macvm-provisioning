@@ -1,0 +1,15 @@
+---
+# K8S macbook on UTM VMs
+- name: Hosts preparation for K8S
+  hosts: k8shosts
+  vars_files:
+    - "{{ passwd_file }}"
+    - "{{ modules_list }}"
+  tasks:
+    - name: ping host
+      ansible.builtin.ping:
+
+  roles:
+    - { role: ansible-roles/iptables, tag: iptables }
+    - { role: ansible-roles/resize-fs, tag: resize-fs }
+    - { role: ansible-roles/install-modules, tag: install-modules }

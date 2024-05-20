@@ -15,6 +15,7 @@ class Configuration:
         self.dict = None
         self.conf_file = conf_file + ".yaml"
         self.ansible_vault_encrypt_cmd = "ansible-vault encrypt --vault-password-file "
+        self.module_list_filename = "modules_list"
 
     def load_conf(self):
         try:
@@ -52,7 +53,9 @@ class Configuration:
                         tmpf["k8sworkers"]["hosts"][node["name"]] = {"ansible_host": node["ipAddress"]}
                 yaml.dump(tmpf, f)
                 #
-                tmpf = {"k8shosts": {"children": {"k8smasters": "", "k8sworkers": ""}}, "vars": {"ansible_user": self.dict["configuration"]["ansibleUser"]["name"], "ansible_become_user": self.dict["configuration"]["ansibleBecomeUser"]["name"]}}
+                tmpf = {"k8shosts": {"children": {"k8smasters": {}, "k8sworkers": {}},
+                        "vars": {"ansible_user": self.dict["configuration"]["ansibleUser"]["name"],
+                                 "ansible_become_user": self.dict["configuration"]["ansibleBecomeUser"]["name"]}}}
                 yaml.dump(tmpf, f)
                 #
                 f.close()
@@ -68,35 +71,66 @@ class Configuration:
                     f.write(pwd)
                 f.close()
             except Exception as e:
-                print(f'Can\'t write ansible vault password to {self.dict["configuration"]["ansibleVaultPasswd"]["filename"]} with Exception {e}')
+                print(
+                    f'Can\'t write ansible vault password to {self.dict["configuration"]["ansibleVaultPasswd"]["filename"]} with Exception {e}')
                 return False
         #
+        file1 = self.dict["configuration"]["ansibleVaultVars"]["filename"]
+        if os.path.exists(file1):
+            file2 = self.dict["configuration"]["ansibleVaultVars"]["filename"] + ".bak"
+            try:
+                os.rename(file1, file2)
+            except Exception as e:
+                print(f'Can\'t rename file {self.dict["configuration"]["ansibleVaultVars"]["filename"]}')
         if not os.path.exists(self.dict["configuration"]["ansibleVaultVars"]["filename"]):
             try:
                 with open(self.dict["configuration"]["ansibleVaultPasswd"]["filename"], "r") as pwd_file:
                     pwd = pwd_file.read()
                 pwd_file.close()
                 with open(self.dict["configuration"]["ansibleVaultVars"]["filename"], "w") as vars_file:
-                    vars_file.write(f'ansible_become_password: {pwd}\nansible_sudo_pass: {pwd}')
+                    vars_file.write(f'ansible_become_password: {pwd}\nansible_sudo_pass: {pwd}\n')
             except Exception as e:
-                print(f'Can\'t create vault-vars file {self.dict["configuration"]["ansibleVaultVars"]["filename"]} with Exception {e}')
+                print(
+                    f'Can\'t create vault-vars file {self.dict["configuration"]["ansibleVaultVars"]["filename"]} with Exception {e}')
                 return False
-            result = subprocess.run(self.ansible_vault_encrypt_cmd + self.dict["configuration"]["ansibleVaultPasswd"]["filename"] + " " + self.dict["configuration"]["ansibleVaultVars"]["filename"], shell=True, text=True, capture_output=True)
+            result = subprocess.run(
+                self.ansible_vault_encrypt_cmd + self.dict["configuration"]["ansibleVaultPasswd"]["filename"] + " " +
+                self.dict["configuration"]["ansibleVaultVars"]["filename"], shell=True, text=True, capture_output=True)
             if result.returncode != 0:
                 print(f'Can\'t encrypt self.dict["configuration"]["ansibleVaultVars"]["filename"] with vault')
                 return False
+        return True
+
+    def write_modules_list(self):
+        if os.path.exists(self.module_list_filename):
+            file2 = self.dict["configuration"]["ansibleVaultVars"]["filename"] + ".bak"
+            try:
+                os.rename(self.module_list_filename, file2)
+            except Exception as e:
+                print(f'Can\'t rename file {self.module_list_filename} with Exception {e}')
+        try:
+            with open(self.module_list_filename, "w") as f:
+                tmpf = {"commonPackages": self.dict["configuration"]["commonPackages"]}
+                yaml.dump(tmpf, f)
+        except Exception as e:
+            print(f'Can\'t write modules list to {self.module_list_filename} with Exception {e}')
+            return False
         return True
 
 
 def check_ssh(conf):
     check_prefix = "ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no -l "
     check_cmd = " \"ls -1d /tmp > /dev/null\""
-    ssh_cp_cmd = "ssh-copy-id "
+    ssh_cp_cmd = f'sshpass -f {conf.dict["configuration"]["ansibleVaultPasswd"]["filename"]} ssh-copy-id '
     for node in conf.dict["configuration"]["k8sCluster"]["nodes"]:
-        result = subprocess.run(check_prefix + conf.dict["configuration"]["ansibleUser"]["name"] + " " + node["ipAddress"] + check_cmd, shell=True, text=True, capture_output=True)
+        result = subprocess.run(
+            check_prefix + conf.dict["configuration"]["ansibleUser"]["name"] + " " + node["ipAddress"] + check_cmd,
+            shell=True, text=True, capture_output=True)
         if result.returncode != 0:
             print(f'Coping ssh ID to {node["name"]} with user {conf.dict["configuration"]["ansibleUser"]["name"]}')
-            ssh_result = subprocess.run(f'{ssh_cp_cmd} {conf.dict["configuration"]["ansibleUser"]["name"]}@{node["ipAddress"]}', shell=True, text=True, capture_output=True)
+            ssh_result = subprocess.run(
+                f'{ssh_cp_cmd} {conf.dict["configuration"]["ansibleUser"]["name"]}@{node["ipAddress"]}', shell=True,
+                text=True, capture_output=True)
             if ssh_result.returncode != 0:
                 print(f'Can\'t copy ssh ID to {node["name"]}')
                 return False
@@ -125,3 +159,23 @@ if __name__ == '__main__':
         print("Can\'t initialize k8shosts with ssh")
         exit(1)
     print("K8S hosts were initialized with SSH")
+    #
+    #
+    if not configuration.write_modules_list():
+        print("Couldn\'t write list of modules")
+        exit(1)
+    #
+    #
+    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+                  ".yaml k8shosts.yaml --vault-password-file " + \
+                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+                      "filename"] + \
+                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    print(f'We go with \n{ansible_run}')
+    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
+    if result.returncode != 0:
+        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+        exit(1)
+    # print(f'ansible result \n{result.stdout}')

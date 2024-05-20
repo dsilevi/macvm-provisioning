@@ -1,0 +1,8 @@
+---
+# tasks file for ansible-roles/install-modules
+- name: install-modules
+  apt:
+    name: "{{ item.name }}={{ item.version }}"
+    state: present
+  loop: "{{ commonPackages }}"
+  tags: install-modules
