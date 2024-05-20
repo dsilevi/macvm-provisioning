@@ -1,0 +1,15 @@
+k8smasters:
+  hosts:
+    k8s1:
+      ansible_host: 192.168.64.11
+k8sworkers:
+  hosts:
+    k8s2:
+      ansible_host: 192.168.64.12
+k8shosts:
+  children:
+    k8smasters: ''
+    k8sworkers: ''
+vars:
+  ansible_become_user: root
+  ansible_user: dsilevi

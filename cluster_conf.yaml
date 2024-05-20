@@ -1,0 +1,27 @@
+#
+# ~ Copyright 2024 Dmitry Matyushkin
+#
+
+configuration:
+  k8sCluster:
+    name: "myk8s"
+    masters: 
+      - "k8s1"
+    nodes:
+      - name: "k8s1"
+        ipAddress: 192.168.64.11
+      - name: "k8s2"
+        ipAddress: 192.168.64.12
+  commonPackages:
+    - name: "vim"
+    - name: "netutils"
+  ansibleInventory:
+    filename: "inventory"
+  ansibleUser:
+    name: "dsilevi"
+  ansibleBecomeUser:
+    name: "root"
+  ansibleVaultPasswd:
+    filename: ".vault_pass.txt"
+  ansibleVaultVars:
+    filename: "passwd"
