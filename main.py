@@ -8,6 +8,7 @@ import os
 
 
 # import requests
+email_address = "dsilevi@example.com"
 
 
 class Configuration:
@@ -122,6 +123,19 @@ class Configuration:
         return True
 
 
+def ssh_keygen():
+    global email_address
+    tmpf = os.path.expanduser("~")
+    if not (os.path.exists(os.path.join(tmpf, ".ssh/id_rsa")) and os.path.exists(os.path.join(tmpf, ".ssh/id_rsa.pub"))):
+        print(f'SSH key-pair was not fount. Generating key-pair with no password and email {email_address}')
+        print(f'No ssh key-pair found, trying to generate. email-address {email_address}')
+        result = subprocess.run(f'ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C {email_address}', shell=True, text=True, capture_output=True)
+        if result.returncode != 0:
+            print(f'Can\'t generate ssh key-pair')
+            return False
+    return True
+
+
 def check_ssh(conf):
     check_prefix = "ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no -l "
     check_cmd = " \"ls -1d /tmp > /dev/null\""
@@ -159,8 +173,13 @@ if __name__ == '__main__':
     print("Ansible configuration has been written")
     #
     #
+    if not ssh_keygen():
+        print("Can\'t initialize SSH key-pair")
+        exit(1)
+    print("SSH key-pair exist")
+    #
     if not check_ssh(configuration):
-        print("Can\'t initialize k8shosts with ssh")
+        print("Can\'t initialize k8shosts with SSH")
         exit(1)
     print("K8S hosts were initialized with SSH")
     #
