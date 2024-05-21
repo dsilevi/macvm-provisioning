@@ -15,7 +15,7 @@ class Configuration:
         self.dict = None
         self.conf_file = conf_file + ".yaml"
         self.ansible_vault_encrypt_cmd = "ansible-vault encrypt --vault-password-file "
-        self.module_list_filename = "modules_list"
+        self.module_list_filename = "ansible/modules_list"
 
     def load_conf(self):
         try:
@@ -103,14 +103,18 @@ class Configuration:
 
     def write_modules_list(self):
         if os.path.exists(self.module_list_filename):
-            file2 = self.dict["configuration"]["ansibleVaultVars"]["filename"] + ".bak"
+            file2 = self.module_list_filename + ".bak"
             try:
                 os.rename(self.module_list_filename, file2)
             except Exception as e:
                 print(f'Can\'t rename file {self.module_list_filename} with Exception {e}')
         try:
             with open(self.module_list_filename, "w") as f:
-                tmpf = {"commonPackages": self.dict["configuration"]["commonPackages"]}
+                tmpf = {"commonPackagesWithVersions": self.dict["configuration"]["commonPackagesWithVersions"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"commonPackagesLatest": self.dict["configuration"]["commonPackagesLatest"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"kubernetesVersion": self.dict["configuration"]["kubernetesVersion"]}
                 yaml.dump(tmpf, f)
         except Exception as e:
             print(f'Can\'t write modules list to {self.module_list_filename} with Exception {e}')
