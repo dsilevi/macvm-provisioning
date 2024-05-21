@@ -1,8 +1,15 @@
 ---
 # tasks file for ansible-roles/install-modules
-- name: install-modules
+- name: install-modules-with-versions
   apt:
     name: "{{ item.name }}={{ item.version }}"
     state: present
-  loop: "{{ commonPackages }}"
+  loop: "{{ commonPackagesWithVersions }}"
+  tags: install-modules
+
+- name: install-modules-latest-version
+  apt:
+    name: "{{ item.name }}"
+    state: latest
+  loop: "{{ commonPackagesLatest }}"
   tags: install-modules

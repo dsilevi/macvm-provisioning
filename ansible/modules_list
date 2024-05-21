@@ -1,0 +1,22 @@
+commonPackagesWithVersions:
+- name: vim
+  version: 2:8.2.3995-1ubuntu2.16
+- name: net-tools
+  version: 1.60+git20181103.0eebece-1ubuntu5
+commonPackagesLatest:
+- name: docker
+- name: containerd
+- name: conntrack
+- name: socat
+- name: libnss-wrapper
+- name: nfs-kernel-server
+- name: rpcbind
+- name: nfs-common
+- name: open-iscsi
+- name: ca-certificates
+- name: curl
+- name: apt-transport-https
+- name: gnupg
+- name: lsb-release
+- name: python3-pip
+kubernetesVersion: 1.30.1-1.1

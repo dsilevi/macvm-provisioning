@@ -1,5 +1,0 @@
-commonPackages:
-- name: vim
-  version: 2:8.2.3995-1ubuntu2.16
-- name: net-tools
-  version: 1.60+git20181103.0eebece-1ubuntu5

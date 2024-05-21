@@ -1,0 +1,34 @@
+---
+# tasks file for swapoff
+- name: Disable swap
+  debug:
+    msg: "Swap status: {{ ansible_memory_mb.swap }}"
+  tags: swapoff
+
+- debug:
+    msg: "Switching swap off"
+  when: ansible_memory_mb.swap.total > 0
+
+- name: Disabling swap in realtime
+  shell: 
+    cmd: "swapoff -a"
+  when: ansible_memory_mb.swap.total > 0
+
+- name: Parsing fstab
+  lineinfile:
+          dest: /etc/fstab
+          regexp: '\sswap\s'
+          line: '#/swap.img'
+          backup: "yes"
+  when: ansible_memory_mb.swap.total > 0
+
+- setup:
+    gather_subset: [ "all" ]
+
+- debug:
+    msg: "------------- SOMETHING GONE WRONG WITH SWAP -------------"
+  when: ansible_memory_mb.swap.total > 0
+
+- debug:
+    msg: "------------- SWAP DISABLED -------------"
+  when: (ansible_memory_mb.swap is not defined) or (ansible_memory_mb.swap.total == 0)
