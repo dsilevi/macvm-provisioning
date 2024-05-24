@@ -8,12 +8,12 @@
 - name: Google Cloud public signing key
   shell:
     creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-    cmd: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+    cmd: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ kubernetesToolsVersion }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg"
 
 - name: Add Kubernetes repository
   shell:
     creates: /etc/apt/sources.list.d/kubernetes.list
-    cmd: "echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"
+    cmd: "echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetesToolsVersion }}/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"
 
 - name: apt update
   apt:
@@ -21,7 +21,7 @@
     force_apt_get: true
 
 - apt:
-    name: [ "kubectl={{ kubernetesVersion }}", "kubelet={{ kubernetesVersion }}", "kubeadm={{ kubernetesVersion }}" ]
+    name: [ "kubectl={{ kubernetesToolsVersion }}", "kubelet={{ kubernetesToolsVersion }}", "kubeadm={{ kubernetesToolsVersion }}" ]
     state: "present"
 
 - debug:

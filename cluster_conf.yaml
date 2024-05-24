@@ -9,9 +9,9 @@ configuration:
       - "k8s1"
     nodes:
       - name: "k8s1"
-        ipAddress: 192.168.64.11
+        ipAddress: 192.168.66.11
       - name: "k8s2"
-        ipAddress: 192.168.64.12
+        ipAddress: 192.168.66.12
   commonPackagesWithVersions:
     - name: "vim"
       version: "2:8.2.3995-1ubuntu2.16"
@@ -43,4 +43,9 @@ configuration:
     filename: "ansible/.vault_pass.txt"
   ansibleVaultVars:
     filename: "ansible/passwd"
-  kubernetesVersion: "1.30.1-1.1"
+  kubernetesVersion: "stable"
+  kubernetesToolsVersion: "1.30.1-1.1"
+  pod_network_cidr: "10.253.0.0/17"
+  service_cidr: "10.253.128.0/17"
+  cluster_domain: "cluster.local"
+  helm_version: "v3.15.0"

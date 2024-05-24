@@ -43,6 +43,15 @@ class Configuration:
                             break
                 yaml.dump(tmpf, f)
                 #
+                tmpf = {"k8smasterInit": {"hosts": {}}}
+                for master_node in range(len(self.dict["configuration"]["k8sCluster"]["masters"])):
+                    for node in self.dict["configuration"]["k8sCluster"]["nodes"]:
+                        if self.dict["configuration"]["k8sCluster"]["masters"][master_node] == node["name"]:
+                            tmpf["k8smasterInit"]["hosts"][node["name"]] = {"ansible_host": node["ipAddress"]}
+                            break
+                    break
+                yaml.dump(tmpf, f)
+                #
                 tmpf = {"k8sworkers": {"hosts": {}}}
                 for node in self.dict["configuration"]["k8sCluster"]["nodes"]:
                     i = True
@@ -116,6 +125,16 @@ class Configuration:
                 tmpf = {"commonPackagesLatest": self.dict["configuration"]["commonPackagesLatest"]}
                 yaml.dump(tmpf, f)
                 tmpf = {"kubernetesVersion": self.dict["configuration"]["kubernetesVersion"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"kubernetesToolsVersion": self.dict["configuration"]["kubernetesToolsVersion"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"pod_network_cidr": self.dict["configuration"]["pod_network_cidr"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"service_cidr": self.dict["configuration"]["service_cidr"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"cluster_domain": self.dict["configuration"]["cluster_domain"]}
+                yaml.dump(tmpf, f)
+                tmpf = {"helm_version": self.dict["configuration"]["helm_version"]}
                 yaml.dump(tmpf, f)
         except Exception as e:
             print(f'Can\'t write modules list to {self.module_list_filename} with Exception {e}')
@@ -202,3 +221,17 @@ if __name__ == '__main__':
         print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
         exit(1)
     # print(f'ansible result \n{result.stdout}')
+    #
+    #
+    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+                  ".yaml k8sinit.yaml --vault-password-file " + \
+                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+                      "filename"] + \
+                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    print(f'We go with \n{ansible_run}')
+    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
+    if result.returncode != 0:
+        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+        exit(1)

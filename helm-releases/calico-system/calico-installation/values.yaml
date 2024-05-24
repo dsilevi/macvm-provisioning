@@ -1,0 +1,14 @@
+#
+pod_network_cidr: "10.10.10.0/24"
+
+cr:
+  - apiVersion: operator.tigera.io/v1
+    kind: Installation
+    metadata:
+      name: default
+    spec:
+      calicoNetwork:
+        bgp: Disabled
+        ipPools:
+          - cidr: "{{ .Values.pod_network_cidr }}"
+            encapsulation: VXLAN

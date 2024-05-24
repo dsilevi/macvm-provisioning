@@ -1,0 +1,8 @@
+---
+# handlers file for disable-ipv6
+- name: update grub
+  shell: update-grub
+
+- name: reboot host according to apply no ipv6 stack
+  ansible.builtin.reboot:
+    post_reboot_delay: 20

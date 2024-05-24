@@ -10,8 +10,10 @@
       ansible.builtin.ping:
 
   roles:
+    - { role: ansible-roles/disable-ipv6, tag: disable-ipv6 }
     - { role: ansible-roles/iptables, tag: iptables }
     - { role: ansible-roles/resize-fs, tag: resize-fs }
     - { role: ansible-roles/install-modules, tag: install-modules }
     - { role: ansible-roles/swapoff, tag: swapoff }
     - { role: ansible-roles/k8s, tag: k8s }
+    - { role: ansible-roles/hosts, tag: hosts }
