@@ -1,8 +1,30 @@
 ---
-# tasks file for resize-fs
-- name: switch on iptables
+# tasks file for iptables
+- name: load modules
+  community.general.modprobe:
+    name: "{{ item.v }}"
+    persistent: present
+    state: present
+  with_items:
+    - { v: 'overlay' }
+    - { v: 'br_netfilter' }
+  tags: iptables
+
+- name: switch on ipforwarding
   sysctl:
-    name: "net.bridge.bridge-nf-call-iptables"
+    name: "{{ item.v }}"
     value: 1
     state: present
-  tags: iptables
+    sysctl_set: true
+    reload: true
+  with_items:
+    - { v: 'net.bridge.bridge-nf-call-ip6tables' }
+    - { v: 'net.bridge.bridge-nf-call-iptables' }
+    - { v: 'net.ipv4.ip_forward' }
+
+#- name: switch on iptables
+#  sysctl:
+#    name: "net.bridge.bridge-nf-call-iptables"
+#    value: 1
+#    state: present
+#  tags: iptables

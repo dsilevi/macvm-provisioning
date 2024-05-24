@@ -1,0 +1,10 @@
+---
+# tasks file for ansible-roles/hosts
+- name: Set list of hosts in /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item]['ansible_host'] }} {{ item }}"
+    backup: true
+    state: present
+  loop: "{{ ansible_play_hosts }}"
+  tags: hosts

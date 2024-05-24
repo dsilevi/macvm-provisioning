@@ -1,0 +1,54 @@
+---
+# tasks file for disable-ipv6
+- name: Disable ipv6 permanently
+  debug: 
+    msg: "IPV6 is defined - disabling in grub conf"
+  when: (ansible_all_ipv6_addresses is defined) and (ansible_all_ipv6_addresses | length > 0)
+  tags: disable-ipv6
+
+- lineinfile:
+          dest: /etc/default/grub
+          line: 'GRUB_CMDLINE_LINUX_DEFAULT="ipv6.disable=1"'
+          state: present
+  notify: update grub
+  when: (ansible_all_ipv6_addresses is defined) and (ansible_all_ipv6_addresses | length > 0)
+
+- name: Disable ipv6 in realtime
+  debug: 
+    msg: "IPV6 is defined - disabling in sysctl realtime"
+  when: (ansible_all_ipv6_addresses is defined) and (ansible_all_ipv6_addresses | length > 0)
+
+- sysctl:
+          name: "{{ item.v }}"
+          value: 1
+          state: present
+  with_items:
+          - { v: 'net.ipv6.conf.all.disable_ipv6' }
+          - { v: 'net.ipv6.conf.default.disable_ipv6' }
+          - { v: 'net.ipv6.conf.lo.disable_ipv6' }
+  when: (ansible_all_ipv6_addresses is defined) and (ansible_all_ipv6_addresses | length > 0)
+
+- lineinfile:
+          dest: /etc/sysctl.conf
+          regexp: "{{ item.v }}"
+          line: "#{{ item.v }}=1"
+          state: present
+  with_items:
+          - { v: 'net.ipv6.conf.all.disable_ipv6' }
+          - { v: 'net.ipv6.conf.default.disable_ipv6' }
+          - { v: 'net.ipv6.conf.lo.disable_ipv6' }
+  when: (ansible_all_ipv6_addresses is not defined) or (ansible_all_ipv6_addresses | length == 0)
+
+- setup:
+    gather_subset: [ all_ipv4_addresses, all_ipv6_addresses ]
+
+- debug: 
+    msg: "IPV4 addresses {{ ansible_all_ipv4_addresses }}  and  IPV6 addresses {{ ansible_all_ipv6_addresses }}"
+
+- debug:
+    msg: "----------- DO NOT FORGET TO REBOOT HOST {{ ansible_hostname }} ------------" 
+  when: (ansible_all_ipv6_addresses is defined) and (ansible_all_ipv6_addresses | length > 0) 
+
+- debug:
+    msg: "----------- IPV6 disabled, no reboot required ------------"
+  when: (ansible_all_ipv6_addresses is not defined) or (ansible_all_ipv6_addresses | length == 0) 

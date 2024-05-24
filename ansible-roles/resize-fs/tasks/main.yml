@@ -7,13 +7,13 @@
 - name: resize pv
   community.general.lvg:
     vg: ubuntu-vg
-    pvs: /dev/sda3
+    pvs: /dev/vda3
     pvresize: yes
     state: present
 
 - name: resize root filesystem
   community.general.lvol:
     vg: ubuntu-vg
-    lv: root
+    lv: ubuntu-lv
     size: +100%FREE
     resizefs: yes
