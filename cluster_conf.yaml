@@ -9,15 +9,18 @@ configuration:
       - "k8s1"
     nodes:
       - name: "k8s1"
-        ipAddress: 192.168.66.11
+        ipAddress: 192.168.67.11
       - name: "k8s2"
-        ipAddress: 192.168.66.12
+        ipAddress: 192.168.67.12
+  ansibleModules:
+    - kubernetes.core
   commonPackagesWithVersions:
     - name: "vim"
       version: "2:8.2.3995-1ubuntu2.16"
     - name: "net-tools"
       version: "1.60+git20181103.0eebece-1ubuntu5"
   commonPackagesLatest:
+    - name: "runc"
     - name: "docker"
     - name: "containerd"
     - name: "conntrack"
@@ -44,8 +47,17 @@ configuration:
   ansibleVaultVars:
     filename: "ansible/passwd"
   kubernetesVersion: "stable"
-  kubernetesToolsVersion: "1.30.1-1.1"
+  kubernetesToolsVersion: "1.29"
   pod_network_cidr: "10.253.0.0/17"
   service_cidr: "10.253.128.0/17"
   cluster_domain: "cluster.local"
   helm_version: "v3.15.0"
+  helmRepositories:
+    calico:
+      - name: "projectcalico"
+        url: "https://docs.tigera.io/calico/charts"
+      - name: "ds-helm-charts"
+        url: "https://dsilevi.github.io/ds-helm-charts"
+  calicoReleases:
+    - name: "tigera-operator"
+    - name: "calico-installation"
