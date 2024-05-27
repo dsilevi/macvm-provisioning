@@ -4,6 +4,7 @@ commonPackagesWithVersions:
 - name: net-tools
   version: 1.60+git20181103.0eebece-1ubuntu5
 commonPackagesLatest:
+- name: runc
 - name: docker
 - name: containerd
 - name: conntrack
@@ -19,9 +20,18 @@ commonPackagesLatest:
 - name: gnupg
 - name: lsb-release
 - name: python3-pip
+helmRepositories:
+  calico:
+  - name: projectcalico
+    url: https://docs.tigera.io/calico/charts
+  - name: ds-helm-charts
+    url: https://dsilevi.github.io/ds-helm-charts
 kubernetesVersion: stable
-kubernetesToolsVersion: 1.30.1-1.1
+kubernetesToolsVersion: '1.29'
 pod_network_cidr: 10.253.0.0/17
 service_cidr: 10.253.128.0/17
 cluster_domain: cluster.local
 helm_version: v3.15.0
+calicoReleases:
+- name: tigera-operator
+- name: calico-installation

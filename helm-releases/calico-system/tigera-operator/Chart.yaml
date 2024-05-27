@@ -1,3 +1,3 @@
 #
-name: tigera-operator
+name: projectcalico/tigera-operator
 version: v3.27.3

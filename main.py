@@ -6,7 +6,6 @@ import sys
 import subprocess
 import os
 
-
 # import requests
 email_address = "dsilevi@example.com"
 
@@ -17,6 +16,7 @@ class Configuration:
         self.conf_file = conf_file + ".yaml"
         self.ansible_vault_encrypt_cmd = "ansible-vault encrypt --vault-password-file "
         self.module_list_filename = "ansible/modules_list"
+        self.kubeadm_config = "helpers/confkubeadm.yaml"
 
     def load_conf(self):
         try:
@@ -64,8 +64,9 @@ class Configuration:
                 yaml.dump(tmpf, f)
                 #
                 tmpf = {"k8shosts": {"children": {"k8smasters": {}, "k8sworkers": {}},
-                        "vars": {"ansible_user": self.dict["configuration"]["ansibleUser"]["name"],
-                                 "ansible_become_user": self.dict["configuration"]["ansibleBecomeUser"]["name"]}}}
+                                     "vars": {"ansible_user": self.dict["configuration"]["ansibleUser"]["name"],
+                                              "ansible_become_user": self.dict["configuration"]["ansibleBecomeUser"][
+                                                  "name"]}}}
                 yaml.dump(tmpf, f)
                 #
                 f.close()
@@ -124,6 +125,8 @@ class Configuration:
                 yaml.dump(tmpf, f)
                 tmpf = {"commonPackagesLatest": self.dict["configuration"]["commonPackagesLatest"]}
                 yaml.dump(tmpf, f)
+                tmpf = {"helmRepositories": self.dict["configuration"]["helmRepositories"]}
+                yaml.dump(tmpf, f)
                 tmpf = {"kubernetesVersion": self.dict["configuration"]["kubernetesVersion"]}
                 yaml.dump(tmpf, f)
                 tmpf = {"kubernetesToolsVersion": self.dict["configuration"]["kubernetesToolsVersion"]}
@@ -136,8 +139,40 @@ class Configuration:
                 yaml.dump(tmpf, f)
                 tmpf = {"helm_version": self.dict["configuration"]["helm_version"]}
                 yaml.dump(tmpf, f)
+                tmpf = {"calicoReleases": self.dict["configuration"]["calicoReleases"]}
+                yaml.dump(tmpf, f)
         except Exception as e:
             print(f'Can\'t write modules list to {self.module_list_filename} with Exception {e}')
+            return False
+        return True
+
+    def write_kubeadm_config(self):
+        try:
+            with open(self.kubeadm_config, "w") as f:
+                tmpf = {"kubeAdmConfig": {"InitConfiguration": {}, "ClusterConfiguration": {}, "KubeProxyConfiguration": {}}}
+                tmpf["kubeAdmConfig"]["InitConfiguration"] = {"apiVersion": "kubeadm.k8s.io/v1beta3"}
+                tmpf["kubeAdmConfig"]["InitConfiguration"]["kind"] = "InitConfiguration"
+                tmpf["kubeAdmConfig"]["InitConfiguration"]["localAPIEndpoint"] = {}
+                tmpf["kubeAdmConfig"]["InitConfiguration"]["localAPIEndpoint"] = \
+                    {"advertiseAddress": "0.0.0.0", "bindPort": 6443}
+                tmpf["kubeAdmConfig"]["ClusterConfiguration"] = {"apiVersion": "kubeadm.k8s.io/v1beta3"}
+                tmpf["kubeAdmConfig"]["ClusterConfiguration"]["kind"] = "ClusterConfiguration"
+                tmpf["kubeAdmConfig"]["ClusterConfiguration"]["networking"] = {}
+                tmpf["kubeAdmConfig"]["ClusterConfiguration"]["networking"] = \
+                    {"serviceSubnet": self.dict["configuration"]["service_cidr"],
+                     "podSubnet": self.dict["configuration"]["pod_network_cidr"],
+                     "dnsDomain": self.dict["configuration"]["cluster_domain"]}
+                tmpf["kubeAdmConfig"]["KubeProxyConfiguration"] = {"apiVersion": "kubeproxy.config.k8s.io/v1alpha1"}
+                tmpf["kubeAdmConfig"]["KubeProxyConfiguration"]["kind"] = "KubeProxyConfiguration"
+                tmpf["kubeAdmConfig"]["KubeProxyConfiguration"]["mode"] = "iptables"
+                yaml.dump(tmpf["kubeAdmConfig"]["InitConfiguration"], f)
+                f.write("---\n")
+                yaml.dump(tmpf["kubeAdmConfig"]["ClusterConfiguration"], f)
+                f.write("---\n")
+                yaml.dump(tmpf["kubeAdmConfig"]["KubeProxyConfiguration"], f)
+            f.close()
+        except Exception as e:
+            print(f'Can\'t create kubeadm configuration yaml {e}')
             return False
         return True
 
@@ -145,10 +180,12 @@ class Configuration:
 def ssh_keygen():
     global email_address
     tmpf = os.path.expanduser("~")
-    if not (os.path.exists(os.path.join(tmpf, ".ssh/id_rsa")) and os.path.exists(os.path.join(tmpf, ".ssh/id_rsa.pub"))):
+    if not (os.path.exists(os.path.join(tmpf, ".ssh/id_rsa")) and os.path.exists(
+            os.path.join(tmpf, ".ssh/id_rsa.pub"))):
         print(f'SSH key-pair was not fount. Generating key-pair with no password and email {email_address}')
         print(f'No ssh key-pair found, trying to generate. email-address {email_address}')
-        result = subprocess.run(f'ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C {email_address}', shell=True, text=True, capture_output=True)
+        result = subprocess.run(f'ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C {email_address}', shell=True,
+                                text=True, capture_output=True)
         if result.returncode != 0:
             print(f'Can\'t generate ssh key-pair')
             return False
@@ -171,6 +208,16 @@ def check_ssh(conf):
             if ssh_result.returncode != 0:
                 print(f'Can\'t copy ssh ID to {node["name"]}')
                 return False
+    return True
+
+
+def load_ansible_modules(conf):
+    for module in conf.dict["configuration"]["ansibleModules"]:
+        result = subprocess.run(f'ansible-galaxy collection install {module}', shell=True, text=True,
+                                capture_output=True)
+        if result.returncode != 0:
+            print(f'Can\'t install module {module}')
+            return False
     return True
 
 
@@ -203,24 +250,35 @@ if __name__ == '__main__':
     print("K8S hosts were initialized with SSH")
     #
     #
+    if not load_ansible_modules(configuration):
+        print("Can\'t install ansible nodules")
+        exit(1)
+    print("Ansible modules were successfully installed")
+    #
+    #
     if not configuration.write_modules_list():
         print("Couldn\'t write list of modules")
         exit(1)
     #
     #
-    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
-                  ".yaml k8shosts.yaml --vault-password-file " + \
-                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
-                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
-                      "filename"] + \
-                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
-                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
-    print(f'We go with \n{ansible_run}')
-    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
-    if result.returncode != 0:
-        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+    if not configuration.write_kubeadm_config():
+        print("Couldn\'t create kubeadm configuration yaml")
         exit(1)
-    # print(f'ansible result \n{result.stdout}')
+    #
+    #
+    # ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+    #               ".yaml k8shosts.yaml --vault-password-file " + \
+    #               configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+    #               " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+    #                   "filename"] + \
+    #               "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+    #               configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    # print(f'We go with \n{ansible_run}')
+    # result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
+    # if result.returncode != 0:
+    #     print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+    #     exit(1)
+    # # print(f'ansible result \n{result.stdout}')
     #
     #
     ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \

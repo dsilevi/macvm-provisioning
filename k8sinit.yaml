@@ -15,14 +15,24 @@
         path: /var/log/kubeadm.out
       register: kubeadm_init
 
+    - name: Upload bash helpers to K8S master
+      copy:
+        src: helpers
+        dest: ~/
+        force: true
+        mode: "0755"
+      when: not kubeadm_init.stat.exists
+
     - name: Init cluster with parameters
       debug:
-        msg: kubeadm init --kubernetes-version="{{ kubernetesVersion }}" --pod-network-cidr="{{ pod_network_cidr }}" --service-cidr="{{ service_cidr }}" --apiserver-advertise-address="{{ ansible_default_ipv4.address }}" --service-dns-domain="{{ cluster_domain }}"
+        msg: kubeadm init --config=/root/helpers/confkubeadm.yaml
+        #msg: kubeadm init --kubernetes-version="{{ kubernetesVersion }}" --pod-network-cidr="{{ pod_network_cidr }}" --service-cidr="{{ service_cidr }}" --apiserver-advertise-address="{{ ansible_default_ipv4.address }}" --service-dns-domain="{{ cluster_domain }}"
       when: not kubeadm_init.stat.exists
 
     - shell: 
         creates: /var/log/kubeadm.out
-        cmd: "kubeadm init --kubernetes-version={{ kubernetesVersion }} --pod-network-cidr={{ pod_network_cidr }} --service-cidr={{ service_cidr }} --apiserver-advertise-address={{ ansible_default_ipv4.address }} --service-dns-domain={{ cluster_domain }} > /var/log/kubeadm.out 2>&1"
+        cmd: "kubeadm init --config=/root/helpers/confkubeadm.yaml > /var/log/kubeadm.out 2>&1"
+        #cmd: "kubeadm init --kubernetes-version={{ kubernetesVersion }} --pod-network-cidr={{ pod_network_cidr }} --service-cidr={{ service_cidr }} --apiserver-advertise-address={{ ansible_default_ipv4.address }} --service-dns-domain={{ cluster_domain }} > /var/log/kubeadm.out 2>&1"
       when: not kubeadm_init.stat.exists
 
     - name: Fetch kubeadm output (command and token to join nodes to cluster) to local storage
@@ -114,28 +124,31 @@
         msg: "------------- CALICO ALREADY installed --------------"
       when: calico_init.stat.exists
 
-#    - name: timestamp
-#      shell:
-#        cmd: "date > /var/log/calico.out"
-#      when: not calico_init.stat.exists
-#
-#    - name: Upload calico operator manifest to K8S master
-#      shell:
-#        creates: /root/tigera-operator.yaml
-#        cmd: "curl -fsSLo /root/tigera-operator.yaml https://projectcalico.docs.tigera.io/manifests/tigera-operator.yaml"
-#      when: (ansible_hostname == master01) and (not calico_init.stat.exists)
-#
-#    - name: Install calico operator in the cluster
-#      shell:
-#        cmd: "kubectl create -f /root/tigera-operator.yaml --kubeconfig=/root/.kube/config.yaml >> /var/log/calico.out 2>&1"
-#      when: (ansible_hostname == master01) and (not calico_init.stat.exists)
-#
-#    - name: Copy calico custom resources
-#      copy:
-#        src: calico/calico-custom-resources.yaml
-#        dest: /root/calico-custom-resources.yaml
-#      when: (ansible_hostname == master01) and (not calico_init.stat.exists)
-#
+    - name: timestamp
+      shell:
+        cmd: "date > /var/log/calico.out"
+      when: not calico_init.stat.exists
+
+    - name: Upload calico helm-releases to K8S master
+      copy:
+        src: helm-releases
+        dest: ~/
+        force: true
+      when: not calico_init.stat.exists
+
+    - name: Add calico helm repositories
+      shell:
+        cmd: "helm repo add {{ item.name }} {{ item.url }} >> /var/log/calico.out 2>&1"
+      loop: "{{ helmRepositories.calico }}"
+      when: not calico_init.stat.exists
+
+    - name: Install calico charts
+      shell:
+        chdir: ~/helm-releases/calico-system
+        cmd: /bin/bash -c "~/helpers/helm-deploy.sh ~/.kube/config.yaml calico-system {{ item.name }} --set pod_network_cidr={{ pod_network_cidr }} >> /var/log/calico.out 2>&1"
+      loop: "{{ calicoReleases }}"
+      when: not calico_init.stat.exists
+
 #    - name: Install calico custom resources in the cluster
 #      shell:
 #        cmd: "sleep 30 && sed --in-place 's/192.168.0.0\\\/16/{{ pod_network_cidr_calico }}/g' /root/calico-custom-resources.yaml && kubectl create -f /root/calico-custom-resources.yaml --kubeconfig=/root/.kube/config.yaml >> /var/log/calico.out 2>&1"

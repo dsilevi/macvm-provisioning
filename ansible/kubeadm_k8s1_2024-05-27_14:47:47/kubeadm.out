@@ -1,21 +1,22 @@
-[init] Using Kubernetes version: v1.30.1
+I0527 14:47:50.177689    5747 version.go:256] remote version is much newer: v1.30.1; falling back to: stable-1.29
+[init] Using Kubernetes version: v1.29.5
 [preflight] Running pre-flight checks
 [preflight] Pulling images required for setting up a Kubernetes cluster
 [preflight] This might take a minute or two, depending on the speed of your internet connection
 [preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
-W0524 08:13:55.867699   11797 checks.go:844] detected that the sandbox image "registry.k8s.io/pause:3.8" of the container runtime is inconsistent with that used by kubeadm.It is recommended to use "registry.k8s.io/pause:3.9" as the CRI sandbox image.
+W0527 14:49:24.293635    5747 checks.go:835] detected that the sandbox image "registry.k8s.io/pause:3.8" of the container runtime is inconsistent with that used by kubeadm. It is recommended that using "registry.k8s.io/pause:3.9" as the CRI sandbox image.
 [certs] Using certificateDir folder "/etc/kubernetes/pki"
 [certs] Generating "ca" certificate and key
 [certs] Generating "apiserver" certificate and key
-[certs] apiserver serving cert is signed for DNS names [k8s1 kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.253.128.1 192.168.66.11]
+[certs] apiserver serving cert is signed for DNS names [k8s1 kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.253.128.1 192.168.67.11]
 [certs] Generating "apiserver-kubelet-client" certificate and key
 [certs] Generating "front-proxy-ca" certificate and key
 [certs] Generating "front-proxy-client" certificate and key
 [certs] Generating "etcd/ca" certificate and key
 [certs] Generating "etcd/server" certificate and key
-[certs] etcd/server serving cert is signed for DNS names [k8s1 localhost] and IPs [192.168.66.11 127.0.0.1 ::1]
+[certs] etcd/server serving cert is signed for DNS names [k8s1 localhost] and IPs [192.168.67.11 127.0.0.1 ::1]
 [certs] Generating "etcd/peer" certificate and key
-[certs] etcd/peer serving cert is signed for DNS names [k8s1 localhost] and IPs [192.168.66.11 127.0.0.1 ::1]
+[certs] etcd/peer serving cert is signed for DNS names [k8s1 localhost] and IPs [192.168.67.11 127.0.0.1 ::1]
 [certs] Generating "etcd/healthcheck-client" certificate and key
 [certs] Generating "apiserver-etcd-client" certificate and key
 [certs] Generating "sa" key and public key
@@ -33,17 +34,14 @@ W0524 08:13:55.867699   11797 checks.go:844] detected that the sandbox image "re
 [kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
 [kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
 [kubelet-start] Starting the kubelet
-[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests"
-[kubelet-check] Waiting for a healthy kubelet. This can take up to 4m0s
-[kubelet-check] The kubelet is healthy after 501.483081ms
-[api-check] Waiting for a healthy API server. This can take up to 4m0s
-[api-check] The API server is healthy after 7.0044903s
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[apiclient] All control plane components are healthy after 7.003949 seconds
 [upload-config] Storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
 [kubelet] Creating a ConfigMap "kubelet-config" in namespace kube-system with the configuration for the kubelets in the cluster
 [upload-certs] Skipping phase. Please see --upload-certs
 [mark-control-plane] Marking the node k8s1 as control-plane by adding the labels: [node-role.kubernetes.io/control-plane node.kubernetes.io/exclude-from-external-load-balancers]
 [mark-control-plane] Marking the node k8s1 as control-plane by adding the taints [node-role.kubernetes.io/control-plane:NoSchedule]
-[bootstrap-token] Using token: qfp82y.5zhyslhqskx9ikmi
+[bootstrap-token] Using token: we6mzb.zkuzdrhtimncnppy
 [bootstrap-token] Configuring bootstrap tokens, cluster-info ConfigMap, RBAC Roles
 [bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to get nodes
 [bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
@@ -72,5 +70,5 @@ Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
 
 Then you can join any number of worker nodes by running the following on each as root:
 
-kubeadm join 192.168.66.11:6443 --token qfp82y.5zhyslhqskx9ikmi \
-	--discovery-token-ca-cert-hash sha256:47a4b5a7ea68ab8af9601d664e39174a57797b003521ec5ac463f8ac1be3bbd6 
+kubeadm join 192.168.67.11:6443 --token we6mzb.zkuzdrhtimncnppy \
+	--discovery-token-ca-cert-hash sha256:c8e9b47fd2cb90f538182d71f1e678df7e44f522d3f81d094be4b2d0b8c3e288 
