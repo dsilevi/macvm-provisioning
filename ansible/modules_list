@@ -20,6 +20,7 @@ commonPackagesLatest:
 - name: gnupg
 - name: lsb-release
 - name: python3-pip
+- name: jq
 helmRepositories:
   calico:
   - name: projectcalico
