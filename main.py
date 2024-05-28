@@ -1,10 +1,11 @@
-import os.path
-
 import yaml
 import json
 import sys
 import subprocess
 import os
+import os.path
+import glob
+import time
 
 # import requests
 email_address = "dsilevi@example.com"
@@ -17,6 +18,7 @@ class Configuration:
         self.ansible_vault_encrypt_cmd = "ansible-vault encrypt --vault-password-file "
         self.module_list_filename = "ansible/modules_list"
         self.kubeadm_config = "helpers/confkubeadm.yaml"
+        self.kubeadm_join = "kubeadm_join.sh"
 
     def load_conf(self):
         try:
@@ -221,6 +223,38 @@ def load_ansible_modules(conf):
     return True
 
 
+def write_workers_join_cmd(conf):
+    directory = ""
+    filename = ""
+    cmd_lines = ["", ""]
+    try:
+        directory = os.path.dirname(conf.dict["configuration"]["ansibleInventory"]["filename"])
+        entries = glob.glob(f'{directory}/kubeadm*')
+        entries.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+        filename = f'{entries[0]}/kubeadm.out'
+        print(f'filename = {filename} attributes = {time.ctime(os.path.getmtime(filename))}, {os.path.getsize(filename)} bytes')
+        with open(filename, "r") as f:
+            lines = [line for line in f]
+        f.close()
+        flag = 0
+        for line in lines:
+            if flag == 1:
+                cmd_lines[1] = line
+                break
+            if line[:12] == "kubeadm join":
+                cmd_lines[0] = line
+                flag = 1
+        print(cmd_lines)
+        with open(f'{os.path.dirname(conf.kubeadm_config)}/{conf.kubeadm_join}', "w") as f:
+            for line in cmd_lines:
+                f.write(line)
+        f.close()
+    except Exception as e:
+        print(f'Can\'t get kubeadm.out in {directory} with Exception {e}')
+        return False
+    return True
+
+
 if __name__ == '__main__':
     if not len(sys.argv) == 2:
         print(f'Wrong number of arguments {sys.argv}')
@@ -266,19 +300,18 @@ if __name__ == '__main__':
         exit(1)
     #
     #
-    # ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
-    #               ".yaml k8shosts.yaml --vault-password-file " + \
-    #               configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
-    #               " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
-    #                   "filename"] + \
-    #               "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
-    #               configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
-    # print(f'We go with \n{ansible_run}')
-    # result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
-    # if result.returncode != 0:
-    #     print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
-    #     exit(1)
-    # # print(f'ansible result \n{result.stdout}')
+    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+                  ".yaml k8shosts.yaml --vault-password-file " + \
+                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+                      "filename"] + \
+                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    print(f'We go with \n{ansible_run}')
+    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
+    if result.returncode != 0:
+        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+        exit(1)
     #
     #
     ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
@@ -292,4 +325,23 @@ if __name__ == '__main__':
     result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
     if result.returncode != 0:
         print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+        exit(1)
+    #
+    #
+    if not write_workers_join_cmd(configuration):
+        print("Couldn\'t create join string for workers nodes")
+        exit(1)
+    #
+    #
+    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+                  ".yaml k8sjoinworkers.yaml --vault-password-file " + \
+                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+                      "filename"] + \
+                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    print(f'We go with \n{ansible_run}')
+    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
+    if result.returncode != 0:
+        print(f'Can\'t join workers to the cluster \n{result.stderr}')
         exit(1)

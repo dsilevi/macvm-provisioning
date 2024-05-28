@@ -10,12 +10,17 @@
       ansible.builtin.ping:
 
 # ------------------------------ K8S installation ------------------------------
+    - name: Install kubernetes Python library
+      ansible.builtin.pip:
+        name: kubernetes
+        state: present
+
     - name: Check if Kubernetes was already installed
       stat:
         path: /var/log/kubeadm.out
       register: kubeadm_init
 
-    - name: Upload bash helpers to K8S master
+    - name: Upload helpers to K8S master
       copy:
         src: helpers
         dest: ~/
@@ -149,32 +154,30 @@
       loop: "{{ calicoReleases }}"
       when: not calico_init.stat.exists
 
-#    - name: Install calico custom resources in the cluster
-#      shell:
-#        cmd: "sleep 30 && sed --in-place 's/192.168.0.0\\\/16/{{ pod_network_cidr_calico }}/g' /root/calico-custom-resources.yaml && kubectl create -f /root/calico-custom-resources.yaml --kubeconfig=/root/.kube/config.yaml >> /var/log/calico.out 2>&1"
-#      when: (ansible_hostname == master01) and (not calico_init.stat.exists)
-#
-#    - name: Install CALICOCTL in KUBECTL on master01
-#      shell:
-#        creates: /usr/local/bin/kubectl-calico
-#        cmd: "curl -fsSLo /usr/local/bin/kubectl-calico https://github.com/projectcalico/calico/releases/download/{{ calico_version }}/calicoctl-linux-arm64 && chmod +x /usr/local/bin/kubectl-calico && kubectl calico -h --kubeconfig=/root/.kube/config.yaml >> /var/log/calico.out 2>&1"
-#      when: ansible_hostname == master01
-#
-#    - debug:
-#        msg: "----------- CALICO installed. Please wait 2 minutes at least to allow CNI and COREDNS wake up ---------------"
-#      when: (ansible_hostname == master01) and (not calico_init.stat.exists)
-#
-##    - name: Install CANAL in cluster and enable CNI
-##      shell:
-##        creates: /root/canal.yaml
-##        cmd: "curl -fsSLo /root/canal.yaml https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/canal.yaml && kubectl apply -f /root/canal.yaml --kubeconfig=/root/.kube/config.yaml >> /var/log/calico.out 2>&1"
-##      when: ansible_hostname == master01
-##
-## ------------------------------ master01 specific section -------------------------
-## Continue in k8saddones.yaml
-#    - debug:
-#        msg: "Please generate kubeadm.sh, start k8sworkers.yaml, add nameserver or hosts to coredns and continue with k8saddones.yaml playbook! -------------------"
-#      when: ansible_hostname == master01
-#
-#  roles:
-##    - { role: disable-ipv6, tag: disable-ipv6 }
+# ------------------------------ Additional tasks -------------------------
+    - name: Get actual taints from master node
+      kubernetes.core.k8s_info:
+        kubeconfig: ~/.kube/config.yaml
+        api_version: v1
+        kind: Node
+        name: "{{ inventory_hostname }}"
+      register: node_info
+
+    - name: Fetch taints excluding master label
+      set_fact:
+        taints: "{{ node_info.resources[0].spec.taints | selectattr('key', '!=', 'node-role.kubernetes.io/control-plane') | list }}"
+
+    - debug:
+        msg: "{{ taints }}"
+
+    - name: Allow workloads to be scheduled on master
+      kubernetes.core.k8s:
+        kubeconfig: ~/.kube/config.yaml
+        state: present
+        definition:
+          api_version: v1
+          kind: Node
+          metadata:
+            name: "{{ inventory_hostname }}"
+          spec:
+            taints: "{{ taints }}"

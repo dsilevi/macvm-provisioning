@@ -36,6 +36,7 @@ configuration:
     - name: "gnupg"
     - name: "lsb-release"
     - name: "python3-pip"
+    - name: "jq"
   ansibleInventory:
     filename: "ansible/inventory"
   ansibleUser:
