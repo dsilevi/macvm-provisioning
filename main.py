@@ -1,11 +1,11 @@
 import yaml
-import json
 import sys
 import subprocess
 import os
 import os.path
 import glob
 import time
+import functools
 
 # import requests
 email_address = "dsilevi@example.com"
@@ -151,7 +151,8 @@ class Configuration:
     def write_kubeadm_config(self):
         try:
             with open(self.kubeadm_config, "w") as f:
-                tmpf = {"kubeAdmConfig": {"InitConfiguration": {}, "ClusterConfiguration": {}, "KubeProxyConfiguration": {}}}
+                tmpf = {"kubeAdmConfig": {"InitConfiguration": {}, "ClusterConfiguration": {},
+                                          "KubeProxyConfiguration": {}}}
                 tmpf["kubeAdmConfig"]["InitConfiguration"] = {"apiVersion": "kubeadm.k8s.io/v1beta3"}
                 tmpf["kubeAdmConfig"]["InitConfiguration"]["kind"] = "InitConfiguration"
                 tmpf["kubeAdmConfig"]["InitConfiguration"]["localAPIEndpoint"] = {}
@@ -179,6 +180,35 @@ class Configuration:
         return True
 
 
+def func_starter(tries=1, delay=1):
+    """
+    :param tries: number of tries to execute function
+    :param delay: delay in between of tries
+    :return: function result
+    """
+
+    def start_func(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            while attempt < tries:
+                try:
+                    print(f'Attempt {attempt + 1} of {tries} for function {func.__name__}')
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f'Attempt {attempt + 1} of {tries} for function {func.__name__} failed with Exception {e}')
+                    attempt += 1
+                    if attempt < tries:
+                        print(f'Sleep for {delay} for attempt {attempt + 1} of {tries} for function {func.__name__}')
+                        time.sleep(delay)
+            print(f'Function {func} failed with {tries} retries')
+            exit(1)
+            return None
+        return wrapper
+    return start_func
+
+
+@func_starter(1, 1)
 def ssh_keygen():
     global email_address
     tmpf = os.path.expanduser("~")
@@ -189,40 +219,46 @@ def ssh_keygen():
         result = subprocess.run(f'ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C {email_address}', shell=True,
                                 text=True, capture_output=True)
         if result.returncode != 0:
-            print(f'Can\'t generate ssh key-pair')
-            return False
-    return True
+            raise Exception(f'Can\'t generate ssh key-pair')
+        return "SSH key-pair was generated"
+    return "SSH key-pair exists"
 
 
+@func_starter(1, 1)
 def check_ssh(conf):
     check_prefix = "ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no -l "
     check_cmd = " \"ls -1d /tmp > /dev/null\""
     ssh_cp_cmd = f'sshpass -f {conf.dict["configuration"]["ansibleVaultPasswd"]["filename"]} ssh-copy-id '
     for node in conf.dict["configuration"]["k8sCluster"]["nodes"]:
-        result = subprocess.run(
-            check_prefix + conf.dict["configuration"]["ansibleUser"]["name"] + " " + node["ipAddress"] + check_cmd,
-            shell=True, text=True, capture_output=True)
+        result = subprocess.CompletedProcess
+        result.returncode = 1
+        try:
+            result = subprocess.run(
+                check_prefix + conf.dict["configuration"]["ansibleUser"]["name"] + " " + node["ipAddress"] + check_cmd,
+                shell=True, text=True, capture_output=True, timeout=3)
+        except Exception as e:
+            print(f'Something wrong during {node["name"]} check:\n{e}')
         if result.returncode != 0:
             print(f'Coping ssh ID to {node["name"]} with user {conf.dict["configuration"]["ansibleUser"]["name"]}')
             ssh_result = subprocess.run(
                 f'{ssh_cp_cmd} {conf.dict["configuration"]["ansibleUser"]["name"]}@{node["ipAddress"]}', shell=True,
-                text=True, capture_output=True)
+                text=True, capture_output=True, timeout=3)
             if ssh_result.returncode != 0:
-                print(f'Can\'t copy ssh ID to {node["name"]}')
-                return False
-    return True
+                raise Exception(f'Can\'t copy ssh ID to {node["name"]}')
+    return f'SSH check passed with nodes:\n-----\n{yaml.dump_all(conf.dict["configuration"]["k8sCluster"]["nodes"])}-----\n'
 
 
+@func_starter(1, 1)
 def load_ansible_modules(conf):
     for module in conf.dict["configuration"]["ansibleModules"]:
         result = subprocess.run(f'ansible-galaxy collection install {module}', shell=True, text=True,
                                 capture_output=True)
         if result.returncode != 0:
-            print(f'Can\'t install module {module}')
-            return False
-    return True
+            raise Exception(f'Can\'t install module {module}')
+    return "All the Ansible modules were installed"
 
 
+@func_starter(1, 1)
 def write_workers_join_cmd(conf):
     directory = ""
     filename = ""
@@ -232,7 +268,8 @@ def write_workers_join_cmd(conf):
         entries = glob.glob(f'{directory}/kubeadm*')
         entries.sort(key=lambda f: os.path.getmtime(f), reverse=True)
         filename = f'{entries[0]}/kubeadm.out'
-        print(f'filename = {filename} attributes = {time.ctime(os.path.getmtime(filename))}, {os.path.getsize(filename)} bytes')
+        print(
+            f'filename = {filename} attributes = {time.ctime(os.path.getmtime(filename))}, {os.path.getsize(filename)} bytes')
         with open(filename, "r") as f:
             lines = [line for line in f]
         f.close()
@@ -250,9 +287,24 @@ def write_workers_join_cmd(conf):
                 f.write(line)
         f.close()
     except Exception as e:
-        print(f'Can\'t get kubeadm.out in {directory} with Exception {e}')
-        return False
-    return True
+        raise Exception(f'Can\'t get kubeadm.out in {directory} with Exception {e}')
+    return f'Created worker join cmd file: {os.path.dirname(conf.kubeadm_config)}/{conf.kubeadm_join}'
+
+
+@func_starter(1, 1)
+def ansible_run(configuration, command):
+    ansible_cmd = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
+                  ".yaml " + command + " --vault-password-file " + \
+                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
+                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
+                      "filename"] + \
+                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
+                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
+    print(f'We go with \n{ansible_cmd}')
+    result = subprocess.run(ansible_cmd, shell=True, text=True, capture_output=False)
+    if result.returncode != 0:
+        raise Exception(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
+    return f'{command} was processed with Ansible'
 
 
 if __name__ == '__main__':
@@ -273,21 +325,12 @@ if __name__ == '__main__':
     print("Ansible configuration has been written")
     #
     #
-    if not ssh_keygen():
-        print("Can\'t initialize SSH key-pair")
-        exit(1)
-    print("SSH key-pair exist")
+    print(f'Result of ssh_keygen: {ssh_keygen()}')
     #
-    if not check_ssh(configuration):
-        print("Can\'t initialize k8shosts with SSH")
-        exit(1)
-    print("K8S hosts were initialized with SSH")
+    print(f'Result of check_ssh: {check_ssh(configuration)}')
     #
     #
-    if not load_ansible_modules(configuration):
-        print("Can\'t install ansible nodules")
-        exit(1)
-    print("Ansible modules were successfully installed")
+    print(f'Result of load_ansible_modules: {load_ansible_modules(configuration)}')
     #
     #
     if not configuration.write_modules_list():
@@ -300,48 +343,13 @@ if __name__ == '__main__':
         exit(1)
     #
     #
-    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
-                  ".yaml k8shosts.yaml --vault-password-file " + \
-                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
-                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
-                      "filename"] + \
-                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
-                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
-    print(f'We go with \n{ansible_run}')
-    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
-    if result.returncode != 0:
-        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
-        exit(1)
+    print(f'Result of K8S hosts initialization: {ansible_run(configuration, "k8shosts.yaml")}')
     #
     #
-    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
-                  ".yaml k8sinit.yaml --vault-password-file " + \
-                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
-                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
-                      "filename"] + \
-                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
-                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
-    print(f'We go with \n{ansible_run}')
-    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
-    if result.returncode != 0:
-        print(f'Can\'t execute hosts bootstrap with ansible \n{result.stderr}')
-        exit(1)
+    print(f'Result of K8S cluster bootstrap: {ansible_run(configuration, "k8sinit.yaml")}')
     #
     #
-    if not write_workers_join_cmd(configuration):
-        print("Couldn\'t create join string for workers nodes")
-        exit(1)
+    print(f'Result of write_workers_join_cmd: {write_workers_join_cmd(configuration)}')
     #
     #
-    ansible_run = "ansible-playbook -i " + configuration.dict["configuration"]["ansibleInventory"]["filename"] + \
-                  ".yaml k8sjoinworkers.yaml --vault-password-file " + \
-                  configuration.dict["configuration"]["ansibleVaultPasswd"]["filename"] + \
-                  " --extra-vars '{\"passwd_file\": \"" + configuration.dict["configuration"]["ansibleVaultVars"][
-                      "filename"] + \
-                  "\", \"modules_list\": \"" + configuration.module_list_filename + "\"}' --become-user " + \
-                  configuration.dict["configuration"]["ansibleBecomeUser"]["name"] + " -b"
-    print(f'We go with \n{ansible_run}')
-    result = subprocess.run(ansible_run, shell=True, text=True, capture_output=False)
-    if result.returncode != 0:
-        print(f'Can\'t join workers to the cluster \n{result.stderr}')
-        exit(1)
+    print(f'Result of K8S workers join: {ansible_run(configuration, "k8sjoinworkers.yaml")}')

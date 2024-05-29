@@ -14,7 +14,7 @@
         path: /var/log/kubeadm.out
       register: kubeadm_init
 
-    - name: Upload helpers to K8S master
+    - name: Upload helpers to K8S worker node
       copy:
         src: helpers
         dest: ~/
