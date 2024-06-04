@@ -119,7 +119,7 @@
         msg: "------------- HELM succesfully installed --------------"
       when: not helm_complete.stat.exists
 
-## ------------------------------ CALICO installation ------------------------------
+# ------------------------------ CALICO installation ------------------------------
     - name: Check if CALICO already installed in the cluster
       stat:
         path: /var/log/calico.out
@@ -153,6 +153,51 @@
         cmd: /bin/bash -c "~/helpers/helm-deploy.sh ~/.kube/config.yaml calico-system {{ item.name }} --set pod_network_cidr={{ pod_network_cidr }} >> /var/log/calico.out 2>&1"
       loop: "{{ calicoReleases }}"
       when: not calico_init.stat.exists
+
+# ------------------------------ METALLB installation ------------------------------
+    - name: Check if METALLB already installed in the cluster
+      stat:
+        path: /var/log/metallb.out
+      register: metallb_init
+
+    - debug:
+        msg: "------------- METALLB ALREADY installed --------------"
+      when: metallb_init.stat.exists
+
+    - name: Split master host part to components
+      set_fact:
+        ip_components: "{{ ansible_host.split('.') }}"
+      when: not metallb_init.stat.exists
+
+    - name: Set ippool for metallb LB
+      set_fact:
+        metallb_pool: "{{ ip_components[0] }}.{{ ip_components[1] }}.{{ ip_components[2] }}.200-{{ ip_components[0] }}.{{ ip_components[1] }}.{{ ip_components[2] }}.220"
+      when: not metallb_init.stat.exists
+
+    - name: Upload helm-releases to K8S master
+      copy:
+        src: helm-releases
+        dest: ~/
+        force: true
+      when: not metallb_init.stat.exists
+
+    - name: timestamp
+      shell:
+        cmd: "date > /var/log/metallb.out"
+      when: not metallb_init.stat.exists
+
+    - name: Add helm repositories
+      shell:
+        cmd: "helm repo add {{ item.name }} {{ item.url }} >> /var/log/metallb.out 2>&1"
+      loop: "{{ helmRepositories.calico }}"
+      when: not metallb_init.stat.exists
+
+    - name: Install metallb charts
+      shell:
+        chdir: ~/helm-releases/metallb-system
+        cmd: /bin/bash -c "~/helpers/helm-deploy.sh ~/.kube/config.yaml metallb-system {{ item.name }} --set metallb_pool={{ metallb_pool }} >> /var/log/metallb.out 2>&1"
+      loop: "{{ metallbReleases }}"
+      when: not metallb_init.stat.exists
 
 # ------------------------------ Additional tasks -------------------------
     - name: Get actual taints from master node

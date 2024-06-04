@@ -1,0 +1,12 @@
+#
+metallb_pool: "10.10.253.200-10.10.253.220"
+
+resources:
+  - apiVersion: metallb.io/v1beta1
+    kind: IPAddressPool
+    metadata:
+      name: ip-addresspool
+      namespace: metallb-system
+    spec:
+      addresses:
+        - "{{ .Values.metallb_pool }}"

@@ -143,6 +143,8 @@ class Configuration:
                 yaml.dump(tmpf, f)
                 tmpf = {"calicoReleases": self.dict["configuration"]["calicoReleases"]}
                 yaml.dump(tmpf, f)
+                tmpf = {"metallbReleases": self.dict["configuration"]["metallbReleases"]}
+                yaml.dump(tmpf, f)
         except Exception as e:
             print(f'Can\'t write modules list to {self.module_list_filename} with Exception {e}')
             return False
