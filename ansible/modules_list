@@ -27,6 +27,11 @@ helmRepositories:
     url: https://docs.tigera.io/calico/charts
   - name: ds-helm-charts
     url: https://dsilevi.github.io/ds-helm-charts
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  common:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
 kubernetesVersion: stable
 kubernetesToolsVersion: '1.29'
 pod_network_cidr: 10.253.0.0/17
@@ -36,3 +41,6 @@ helm_version: v3.15.0
 calicoReleases:
 - name: tigera-operator
 - name: calico-installation
+metallbReleases:
+- name: metallb
+- name: metallb-pool

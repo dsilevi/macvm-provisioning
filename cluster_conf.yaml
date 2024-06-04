@@ -59,6 +59,14 @@ configuration:
         url: "https://docs.tigera.io/calico/charts"
       - name: "ds-helm-charts"
         url: "https://dsilevi.github.io/ds-helm-charts"
+      - name: "metallb"
+        url: "https://metallb.github.io/metallb"
+    common:
+      - name: "argo"
+        url: "https://argoproj.github.io/argo-helm"
   calicoReleases:
     - name: "tigera-operator"
     - name: "calico-installation"
+  metallbReleases:
+    - name: "metallb"
+    - name: "metallb-pool"
