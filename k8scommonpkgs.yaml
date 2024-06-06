@@ -1,0 +1,54 @@
+---
+# Install common packages to K8S cluster
+- name: Init Kubernetes with kubeadm
+  hosts: k8smasterInit
+  vars_files:
+    - "{{ passwd_file }}"
+    - "{{ modules_list }}"
+  tasks:
+    - name: Ping host
+      ansible.builtin.ping:
+
+#    - name: Check if node was already joined to the cluster
+#      stat:
+#        path: /var/log/kubeadm.out
+#      register: kubeadm_init
+
+    - name: Upload helpers to K8S master node
+      copy:
+        src: helpers
+        dest: ~/
+        force: true
+        mode: "0755"
+#      when: not kubeadm_init.stat.exists
+
+    - name: Upload helm-releases to K8S master node
+      copy:
+        src: helm-releases
+        dest: ~/
+        force: true
+        mode: "0755"
+#      when: not kubeadm_init.stat.exists
+
+    - name: Add helm repositories
+      kubernetes.core.helm_repository:
+        name: "{{ item.name }}"
+        repo_url: "{{ item.url }}"
+      loop: "{{ helmRepositories.common }}"
+
+    - name: Get releases list in helm-repositories/argocd
+      ansible.builtin.find:
+        paths: ~/helm-releases/argocd
+        recurse: no
+        file_type: directory
+      register: dir_list
+
+    - debug:
+        msg: "{{ item['path'] | basename }}"
+      loop: "{{ dir_list['files'] }}"
+
+    - name: Install argocd releases
+      shell:
+        chdir: ~/helm-releases/argocd
+        cmd: /bin/bash -c "~/helpers/helm-deploy.sh ~/.kube/config.yaml argocd {{ item['path'] | basename }} >> /var/log/common.out 2>&1"
+      loop: "{{ dir_list['files'] }}"
