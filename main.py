@@ -355,3 +355,6 @@ if __name__ == '__main__':
     #
     #
     print(f'Result of K8S workers join: {ansible_run(configuration, "k8sjoinworkers.yaml")}')
+    #
+    #
+    print(f'Result of K8S common packages installation: {ansible_run(configuration, "k8scommonpkgs.yaml")}')
