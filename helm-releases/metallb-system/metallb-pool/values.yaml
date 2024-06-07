@@ -10,3 +10,11 @@ resources:
     spec:
       addresses:
         - "{{ .Values.metallb_pool }}"
+  - apiVersion: metallb.io/v1beta1
+    kind: L2Advertisement
+    metadata:
+      name: l2advertisement
+      namespace: metallb-system
+    spec:
+      ipAddressPools:
+      - ip-addresspool
