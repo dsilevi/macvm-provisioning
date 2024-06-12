@@ -1,3 +1,7 @@
+#
+# ~ Copyright 2024 Dmitry Matyushkin
+#
+
 import yaml
 import sys
 import subprocess
